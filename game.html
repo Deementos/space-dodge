@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Space Dodge XL</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #555;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            background-color: #000;
+            /* Чтобы гигантский канвас влезал в экран ноутбука/телефона: */
+            max-width: 95%;
+            max-height: 95vh;
+            width: auto;
+            height: auto;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        h1 { 
+            margin: 0; 
+            font-size: 32px; /* Увеличил шрифт заголовка */
+            text-transform: uppercase; 
+            letter-spacing: 3px; 
+            text-shadow: 2px 2px 0 #000;
+        }
+        p { margin: 5px 0; color: #ddd; font-size: 20px; text-shadow: 1px 1px 0 #000; }
+        #gameOverMenu {
+            display: none;
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 50px;
+            border: 4px solid white;
+            text-align: center;
+            z-index: 20;
+            border-radius: 10px;
+        }
+        button {
+            background: white;
+            color: black;
+            border: none;
+            padding: 15px 30px;
+            font-size: 24px;
+            cursor: pointer;
+            font-family: inherit;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        button:hover { background: #ccc; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Space Dodge XL</h1>
+        <p>Счет: <span id="scoreVal">0</span></p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="gameOverMenu">
+        <h2 style="color: #ff4444; font-size: 40px; margin: 0 0 20px 0;">ИГРА ОКОНЧЕНА</h2>
+        <p style="font-size: 24px;">Твой счет: <span id="finalScore">0</span></p>
+        <button onclick="startGame()">ИГРАТЬ СНОВА</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('scoreVal');
+        const finalScoreEl = document.getElementById('finalScore');
+        const menu = document.getElementById('gameOverMenu');
+
+        // --- ЗАГРУЗКА КАРТИНОК ---
+        const playerImg = new Image();
+        playerImg.src = 'player.png'; 
+
+        const enemyImg = new Image();
+        enemyImg.src = 'enemy.png';   
+        // -------------------------
+
+        // Настройки канваса (УВЕЛИЧЕНО В 2 РАЗА)
+        canvas.width = 900; 
+        canvas.height = 1300; 
+
+        // Состояние игры
+        let gameRunning = false;
+        let score = 0;
+        let frame = 0;
+        let difficultyMultiplier = 1;
+
+        // Игрок
+        const player = {
+            x: canvas.width / 2 - 80,
+            y: canvas.height - 180, 
+            w: 160, // БЫЛО 80, СТАЛО 160
+            h: 160, // БЫЛО 80, СТАЛО 160
+            speed: 11, // Скорость тоже поднял, чтобы бегал бодрее
+            dx: 0,
+            color: '#00ffcc'
+        };
+
+        // Враги
+        let enemies = [];
+        
+        // Управление
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') player.dx = -player.speed;
+            if (e.key === 'ArrowRight' || e.key === 'd') player.dx = player.speed;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (
+                (e.key === 'ArrowLeft' || e.key === 'a') && player.dx < 0 ||
+                (e.key === 'ArrowRight' || e.key === 'd') && player.dx > 0
+            ) {
+                player.dx = 0;
+            }
+        });
+
+        function spawnEnemy() {
+            // РАЗМЕР ВРАГА (УВЕЛИЧЕН)
+            // Теперь от 80 до 150 пикселей
+            const size = Math.random() * 70 + 80; 
+            
+            const x = Math.random() * (canvas.width - size);
+            enemies.push({
+                x: x,
+                y: -size,
+                size: size,
+                // Скорость падения (увеличена для динамики)
+                speed: (Math.random() * 3 + 4) * difficultyMultiplier,
+                color: `hsl(${Math.random() * 60 + 330}, 100%, 50%)`
+            });
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            // --- НАСТРОЙКА РАЗМЫТИЯ ---
+            // Было 0.3 (сильный шлейф). Стало 0.7 (слабый шлейф, почти нет).
+            // Чем ближе к 1.0, тем четче картинка и меньше хвост.
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Движение игрока
+            player.x += player.dx;
+            
+            // Границы
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+
+            // --- ОТРИСОВКА ИГРОКА ---
+            ctx.shadowBlur = 25; // Увеличил свечение
+            ctx.shadowColor = player.color;
+            
+            if (playerImg.complete && playerImg.naturalHeight !== 0) {
+                ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+            } else {
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+            }
+            ctx.shadowBlur = 0;
+            // ------------------------
+
+            // Спавн врагов
+            // Формула чуть изменена под большие размеры, чтобы не было слишком густо
+            if (frame % Math.max(20, 50 - Math.floor(score / 50)) === 0) {
+                spawnEnemy();
+            }
+
+            for (let i = 0; i < enemies.length; i++) {
+                let e = enemies[i];
+                e.y += e.speed;
+
+                // --- ОТРИСОВКА ВРАГА ---
+                if (enemyImg.complete && enemyImg.naturalHeight !== 0) {
+                    ctx.drawImage(enemyImg, e.x, e.y, e.size, e.size);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(e.x + e.size/2, e.y + e.size/2, e.size/2, 0, Math.PI * 2);
+                    ctx.fillStyle = e.color;
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
+                // Столкновение
+                // HitboxPadding увеличен до 15, так как картинки большие и у них часто есть пустые края
+                const hitboxPadding = 15; 
+                if (
+                    player.x + hitboxPadding < e.x + e.size - hitboxPadding &&
+                    player.x + player.w - hitboxPadding > e.x + hitboxPadding &&
+                    player.y + hitboxPadding < e.y + e.size - hitboxPadding &&
+                    player.y + player.h - hitboxPadding > e.y + hitboxPadding
+                ) {
+                    gameOver();
+                }
+
+                // Удаление врагов
+                if (e.y > canvas.height) {
+                    enemies.splice(i, 1);
+                    i--;
+                    score += 10;
+                    scoreEl.innerText = score;
+                    
+                    if (score % 100 === 0) {
+                        difficultyMultiplier += 0.1;
+                    }
+                }
+            }
+
+            frame++;
+            requestAnimationFrame(update);
+        }
+
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            frame = 0;
+            difficultyMultiplier = 1;
+            enemies = [];
+            scoreEl.innerText = '0';
+            menu.style.display = 'none';
+            player.x = canvas.width / 2 - player.w / 2;
+            update();
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            finalScoreEl.innerText = score;
+            menu.style.display = 'block';
+        }
+
+        menu.style.display = 'block';
+        document.querySelector('#gameOverMenu h2').innerText = "SPACE DODGE XL";
+        document.querySelector('#gameOverMenu p').innerText = "Управление: стрелки или A/D";
+        document.querySelector('#gameOverMenu button').innerText = "НАЧАТЬ";
+
+    </script>
+</body>
+</html>
