@@ -121,14 +121,14 @@
         
         // Управление
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'a') player.dx = -player.speed;
-            if (e.key === 'ArrowRight' || e.key === 'd') player.dx = player.speed;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') player.dx = -player.speed;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') player.dx = player.speed;
         });
 
         document.addEventListener('keyup', (e) => {
             if (
-                (e.key === 'ArrowLeft' || e.key === 'a') && player.dx < 0 ||
-                (e.key === 'ArrowRight' || e.key === 'd') && player.dx > 0
+                (e.code === 'ArrowLeft' || e.code === 'KeyA') && player.dx < 0 ||
+                (e.code === 'ArrowRight' || e.code === 'KeyD') && player.dx > 0
             ) {
                 player.dx = 0;
             }
@@ -256,3 +256,4 @@
 </body>
 
 </html>
+
